@@ -4,11 +4,10 @@
  * Dr. Chatterjee
  */
 
-import java.util.*;
-public class Server extends Thread{
+public class Server{
 	private int delay;		//delay experienced when sending request
 	private String name;	//name of server
-	private boolean lock;
+	private boolean lock;	//true = server is open, false = close
 	
 	public Server(){		//default constructor
 		delay = 5000;
@@ -42,20 +41,20 @@ public class Server extends Thread{
 		return lock;
 	}
 	
-	public void run(){
-		Random rand = new Random();
-		int num;						//random delay value for jobs
-		for (int i = 0; i < 5; i++){	//server runs 5 jobs
-			try {
-				//sendRequest();		//simulates delay when sending request
-				num = rand.nextInt(5000);	//sets a random delay for jobs from 0 - 5000
-				startJob(new Jobs(num, i + 1));	//simulates server working on job
-			} 
-			catch (InterruptedException e) {
-			}
+	/*public void run(){
+		//Random rand = new Random();
+		//int num;						//random delay value for jobs
+		//for (int i = 0; i < 5; i++){	//server runs 5 jobs
+		try {
+			sendRequest();		//simulates delay when sending request
+				//num = rand.nextInt(5000);	//sets a random delay for jobs from 0 - 5000
+				//startJob(new Jobs(num, i + 1));	//simulates server working on job
+		} 
+		catch (InterruptedException e) {
 		}
-		System.out.println("**************" + name + " finished all jobs**************");
-	}
+		
+		//System.out.println("**************" + name + " finished all jobs**************");
+	}*/
 	
 	//simulates delay experienced when sending request to a server
 	public void sendRequest(Jobs j) throws InterruptedException{

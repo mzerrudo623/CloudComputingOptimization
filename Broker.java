@@ -38,7 +38,7 @@ public class Broker {
 	//fill up stack with Jobs objects
 	private void getJobs(){
 		int jobTime;
-		for (int i = 0; i < 25; i++){
+		for (int i = 24; i >= 0; i--){
 			jobTime = rand.nextInt(5000);
 			job.push(new Jobs(jobTime, i + 1));
 		}
@@ -54,6 +54,7 @@ public class Broker {
 	//runs the Broker class
 	public void run() throws InterruptedException{
 		int i;			//used to create a delay if no open server is found
+		MyThread thread;
 		
 		getServers();
 		getJobs();
@@ -61,7 +62,9 @@ public class Broker {
 			checkLocks();		//update lock status of the servers
 			for (i = 0; i < server.length; i++){
 				if (lock[i] == true){
-					server[i].sendRequest(job.pop());
+					thread = new MyThread(server[i], job.pop());
+					thread.start();
+					Thread.sleep(1000);		//delay to prevent server from working on two jobs
 					break;
 				}
 			}
@@ -70,11 +73,8 @@ public class Broker {
 		}
 	}
 	
-	public static void main(String[] args){
+	public static void main(String[] args) throws InterruptedException{
 		Broker test = new Broker();
-		test.getJobs();
-		while (!test.job.empty()){
-			System.out.println(test.job.pop());
-		}
+		test.run();
 	}
 }
