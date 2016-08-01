@@ -1,13 +1,170 @@
 /* Mishael Zerrudo
- * Broker sends each server 3 jobs
+ * Broker sends server a fixed number of jobs
  * Research Project
  * Dr. Chatterjee
  */
 
 import java.util.*;
 import java.io.*;
+public class BrokerFixedJobs {
+	private Server[] server;
+	private PriorityQueue<Jobs> jobQueue;
+	public static Jobs[][] job;
+	private Random rand;	//used to create random delay for server and job
+	public static String outputFileName;
+	public static long programStartTime;	//stores the time the program starts running
+	public static boolean[] arrayLock;
+	
+	public String schedulingMethod;
+	
+	public BrokerFixedJobs(){		//default constructor
+		this(10);
+	}
+	
+	public BrokerFixedJobs(int size){	//one-argument constructor
+		server = new Server[size];
+		jobQueue = new PriorityQueue<Jobs>();
+		job = new Jobs[3][size];
+		rand = new Random();
+		arrayLock = new boolean[size];
+	}
+	
+	public BrokerFixedJobs(int size, String fname, String s){
+		this(size);
+		outputFileName = fname;
+		schedulingMethod = s;
+	}
+	
+	//get server from a file and store into the array
+	public void getServers() throws FileNotFoundException{
+		String filename;
+		Scanner keyboard = new Scanner(System.in);
+		
+		System.out.println("Enter the input file name: ");
+		filename = keyboard.next();
+		File inputFile = new File(filename);
+		if (!inputFile.exists()){
+			System.out.println(filename + " not found");
+			System.exit(0);
+		}
+		Scanner input = new Scanner(inputFile);
+		for (int i = 0; i < server.length; i++)
+			server[i] = new Server(input.nextInt(), input.nextInt(), input.nextInt(), input.nextInt());
+	}
+	
+	//get job from a file and store in stack
+	public void getJobs() throws FileNotFoundException{
+		//String fname;
+		//Scanner keyboard = new Scanner(System.in);
+		File inputFile = new File("Jobs.txt");
+		if (!inputFile.exists()){
+			System.out.println("Jobs.txt not found");
+			System.exit(0);
+		}
+		Scanner input = new Scanner(inputFile);
+		for(int i = 0; i < 30; i++){
+			jobQueue.add(new Jobs(input.nextInt(), input.nextInt(), input.nextInt(), input.nextInt()));
+		}
+	}
+	
+	//stores jobs in the array
+	public void sendJob() throws InterruptedException{
+		int index = -1;
+		while (!jobQueue.isEmpty()){
+			//if scheduling method chosen is best-fit or worse-fit
+			if (schedulingMethod.equalsIgnoreCase("b") ||
+					schedulingMethod.equalsIgnoreCase("w")){
+				index = findBestServer();	//find the best server to send job to
+				if (index != -1){
+					arrayLock[index] = true;
+					for (int j = 0; j < 3; j++){
+						job[j][index] = jobQueue.remove();
+					}
+				}
+			}
+			//if scheduling method chosen is first-fit
+			else{
+				for (int i = 0; i < job.length; i++){
+					for (int j = 0; j < job[i].length; j++){
+						job[i][j] = jobQueue.remove();
+					}
+				}
+			}
+		}
+	}
+	
+	//find the best server to do a job, returns index of server
+	public int findBestServer(){
+		int index = -1;
+		//if scheduling method chosen is best-fit
+		//send 3 jobs to server with low memory first
+		for (int i = 0; i < 10; i++){
+			if (schedulingMethod.equalsIgnoreCase("b")){
+				//if job array is null, and server meets requirement and,
+				//index is -1 or server memory is less than current lowest server memory
+				if ((index == -1 || server[i].getMemory() < server[index].getMemory()) &&
+						arrayLock[i] == false){
+					index = i;
+				}
+			}
+			//else if scheduling method chosen is worse-fit
+			//send 3 jobs to server with highest memory first
+			else{
+				//if job array is null, and server meets requirement and,
+				//index is -1 or server memory is less than current lowest server memory
+				if ((index == -1 || server[i].getMemory() > server[index].getMemory()) &&
+						arrayLock[i] == false){
+					index = i;
+				}
+			}
+		}
+		return index;
+	}
+		
+	public static void main(String[] args) throws InterruptedException, FileNotFoundException{
+		int numOfServer = 10;
+		String filename = "";
+		String schedMethod = "";
+		Scanner keyboard = new Scanner(System.in);
+		System.out.println("Enter the output file name: ");
+		filename = keyboard.next();
+		do{
+			System.out.println("Enter scheduling method: ");
+			schedMethod = keyboard.next();
+		} while(!schedMethod.equalsIgnoreCase("b") && 
+				!schedMethod.equalsIgnoreCase("f") &&
+				!schedMethod.equalsIgnoreCase("w"));
+		BrokerFixedJobs test = new BrokerFixedJobs(numOfServer, filename, schedMethod);
+		//test.generateServers();
+		programStartTime = System.currentTimeMillis();
+		test.getServers();
+		test.getJobs();
+		test.sendJob();
+	}
+	
+	//create servers and stores into an array
+	/*private void generateServers(){
+		int serverNumber;
+		int delay;
+		for (int i = 0; i < server.length; i++)
+		{
+			delay = rand.nextInt(9000);		//sets a random delay for server from 0 - 9000
+			serverNumber = i + 1;			//creates a name for server (Server1, Server2, etc.)
+			server[i] = new Server(serverNumber, delay);	//create new server object and store in array
+		}
+	}*/
+	
+	//create jobs and stores in stack
+	/*private void generateJobs(){
+		int jobTime;
+		for (int i = 24; i >= 0; i--){
+			jobTime = rand.nextInt(5000);
+			jobStack.push(new Jobs(jobTime, i + 1));
+		}
+	}*/
+}
 
-public class Server extends Thread{
+class Server extends Thread{
 	private int delay;		//delay experienced when sending request
 	private int serverNum;	//the server number
 	private int jobsDone;	//number of jobs completed by server
@@ -50,6 +207,10 @@ public class Server extends Thread{
 		return jobsDone;
 	}
 	
+	public int getMemory(){
+		return memory;
+	}
+	
 	//server waits until a job is sent to the server
 	public void waitForRequest(){
 		while (BrokerFixedJobs.job[jobsDone][serverNum - 1] == null){
@@ -64,7 +225,7 @@ public class Server extends Thread{
 		return false;
 	}
 		
-	public void run(){
+	public void run() {
 		while (jobsDone != 3){
 			waitForRequest();
 			try {
@@ -132,11 +293,13 @@ public class Server extends Thread{
 	}
 }
 
-public class Jobs{
+class Jobs implements Comparable<Jobs>{
 	private int jobNum;
 	private int jobTime;
 	private int reqMem;		//required memory to do job
 	private int reqProc;	//required processor speed to do job
+	public static boolean batch;
+	public static boolean service;
 	
 	public Jobs(){
 		jobTime = 5000;
@@ -165,109 +328,26 @@ public class Jobs{
 	public int getReqProcessor(){
 		return reqProc;
 	}
+	
+	//returns 0 if batch, 1 if service
+	public int checkJobType(){
+		if (batch == true)
+			return 0;
+		else
+			return 1;
+	}
 
+	//compares based on required memory for job
+	public int compareTo(Jobs j){
+		if (reqMem < j.getReqMemory())
+			return -1;
+		else if (reqMem > j.getReqMemory())
+			return 1;
+		else
+			return 0;
+	}
+	
 	/*public String toString(){
 		return "Job Time: " + jobTime + "\nJob Number: " + jobNum;
-	}*/
-}
-
-public class BrokerFixedJobs {
-	private Server[] server;
-	private Stack<Jobs> jobStack;
-	public static Jobs[][] job;
-	private Random rand;	//used to create random delay for server and job
-	public static String outputFileName;
-	public static long programStartTime;	//stores the time the program starts running
-	
-	public BrokerFixedJobs(){		//default constructor
-		this(10);
-	}
-	
-	public BrokerFixedJobs(int size){	//one-argument constructor
-		server = new Server[size];
-		jobStack = new Stack<Jobs>();
-		job = new Jobs[3][size];
-		rand = new Random();
-	}
-	
-	public BrokerFixedJobs(int size, String fname){
-		this(size);
-		outputFileName = fname;
-	}
-	
-	//get server from a file and store into the array
-	public void getServers() throws FileNotFoundException{
-		String filename;
-		Scanner keyboard = new Scanner(System.in);
-		
-		System.out.println("Enter the input file name: ");
-		filename = keyboard.next();
-		File inputFile = new File(filename);
-		if (!inputFile.exists()){
-			System.out.println(filename + " not found");
-			System.exit(0);
-		}
-		Scanner input = new Scanner(inputFile);
-		for (int i = 0; i < server.length; i++)
-			server[i] = new Server(input.nextInt(), input.nextInt(), input.nextInt(), input.nextInt());
-	}
-	
-	//get job from a file and store in stack
-	public void getJobs() throws FileNotFoundException{
-		//String fname;
-		//Scanner keyboard = new Scanner(System.in);
-		File inputFile = new File("Jobs.txt");
-		if (!inputFile.exists()){
-			System.out.println("Jobs.txt not found");
-			System.exit(0);
-		}
-		Scanner input = new Scanner(inputFile);
-		for(int i = 0; i < 30; i++){
-			jobStack.push(new Jobs(input.nextInt(), input.nextInt(), input.nextInt(), input.nextInt()));
-		}
-	}
-	
-	//stores jobs in the array
-	public void sendJob() throws InterruptedException{
-		for (int i = 0; i < job.length; i++){
-			for (int j = 0; j < job[i].length; j++){
-				job[i][j] = jobStack.pop();
-			}
-		}
-	}
-		
-	public static void main(String[] args) throws InterruptedException, FileNotFoundException{
-		int numOfServer = 10;
-		String filename = "";
-		Scanner keyboard = new Scanner(System.in);
-		System.out.println("Enter the output file name: ");
-		filename = keyboard.next();
-		BrokerFixedJobs test = new BrokerFixedJobs(numOfServer, filename);
-		//test.generateServers();
-		programStartTime = System.currentTimeMillis();
-		test.getServers();
-		test.getJobs();
-		test.sendJob();
-	}
-	
-	//create servers and stores into an array
-	/*private void generateServers(){
-		int serverNumber;
-		int delay;
-		for (int i = 0; i < server.length; i++)
-		{
-			delay = rand.nextInt(9000);		//sets a random delay for server from 0 - 9000
-			serverNumber = i + 1;			//creates a name for server (Server1, Server2, etc.)
-			server[i] = new Server(serverNumber, delay);	//create new server object and store in array
-		}
-	}*/
-	
-	//create jobs and stores in stack
-	/*private void generateJobs(){
-		int jobTime;
-		for (int i = 24; i >= 0; i--){
-			jobTime = rand.nextInt(5000);
-			jobStack.push(new Jobs(jobTime, i + 1));
-		}
 	}*/
 }
